@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAYEE参数筛选器</title>
+  <script src="./supabase.min.js" onerror="window.__supabaseLoadFailed=true;"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1600px; margin: 0 auto; padding: 20px; }
+    header {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px 32px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    header h1 { font-size: 24px; color: #1a1a1a; margin-bottom: 6px; }
+    header p { color: #666; font-size: 14px; }
+    .cat-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .cat-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .cat-btn:hover { border-color: #1890ff; color: #1890ff; }
+    .cat-btn.active { background: #1890ff; color: #fff; border-color: #1890ff; }
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .filters {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .kind-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #eee;
+    }
+    .kind-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #d9d9d9;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .kind-btn:hover { border-color: #1890ff; color: #1890ff; }
+    .kind-btn.active { background: #1890ff; color: #fff; border-color: #1890ff; }
+    .filter-row {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .filter-section {
+      flex: 0 0 170px;
+      min-width: 170px;
+      max-height: 360px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #f0f0f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fafbfc;
+    }
+    .filter-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #f0f0f0;
+      padding-bottom: 6px;
+    }
+    .filter-title .reset {
+      font-size: 12px;
+      color: #1890ff;
+      cursor: pointer;
+      font-weight: normal;
+    }
+    .filter-title .reset:hover { text-decoration: underline; }
+    .filter-search {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 6px;
+      outline: none;
+    }
+    .filter-search:focus { border-color: #1890ff; }
+    .filter-options {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    .filter-option {
+      display: flex;
+      align-items: center;
+      padding: 3px 0;
+      cursor: pointer;
+      font-size: 12px;
+      color: #555;
+    }
+    .filter-option:hover { color: #1890ff; }
+    .filter-option input { margin-right: 6px; }
+    .results {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .results-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .results-count { font-size: 14px; color: #666; }
+    .results-count strong { color: #1890ff; }
+    .clear-all {
+      font-size: 13px;
+      color: #1890ff;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    .clear-all:hover { background: #e6f7ff; }
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .results-table th, .results-table td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+    .results-table th {
+      background: #fafafa;
+      font-weight: 600;
+      color: #1a1a1a;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .results-table td { color: #555; }
+    .results-table tr:hover td { background: #f6fbff; }
+    .results-table .model { font-weight: 600; color: #1890ff; }
+    .results-table .price { color: #f56c6c; font-weight: 600; }
+    .results-table .no-datasheet { color: #999; font-size: 12px; }
+    .results-table .product-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; }
+    .results-table .no-image { color: #999; font-size: 12px; }
+    .results-table .remark { color: #666; font-size: 12px; max-width: 160px; white-space: normal; }
+    .datasheet-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: #1890ff;
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 12px;
+    }
+    .datasheet-link:hover { background: #40a9ff; }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error-tip {
+      background: #fff2f0;
+      border: 1px solid #ffccc7;
+      color: #cf1322;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    @media (max-width: 768px) {
+      .filter-section { flex: 0 0 140px; min-width: 140px; max-height: 280px; }
+      .results-table { font-size: 12px; }
+      .results-table th, .results-table td { padding: 8px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>CAYEE参数筛选器</h1>
+      <p>选择产品分类，按参数维度快速匹配 MLCC、贴片铝电解电容、自恢复保险丝型号</p>
+    </header>
+    <div class="cat-bar" id="catBar"><div class="loading">正在加载数据...</div></div>
+    <div class="main">
+      <div class="filters" id="filters"></div>
+      <div class="results" id="results"></div>
+    </div>
+    <div id="debugInfo" style="padding:12px;margin-top:16px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:6px;font-size:13px;color:#856404;display:none;"></div>
+  </div>
+
+<script>
+// ==================== Supabase 配置 ====================
+// CAYEE 项目 Supabase 配置
+const SUPABASE_URL = 'https://jlrfqsxrlmvmeobscgoh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XhbkwG-rBTVHRVZxxm0Q4g_EhFFnx6v';
+let _supabaseClient = null;
+
+function initSupabaseClient() {
+  if (_supabaseClient) return true;
+  if (!SUPABASE_URL || !SUPABASE_KEY) return false;
+  if (window.__supabaseLoadFailed) return false;
+  if (window.supabase && window.supabase.createClient) {
+    try {
+      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      return true;
+    } catch (e) {
+      console.error('createClient 失败:', e);
+      return false;
+    }
+  }
+  return false;
+}
+initSupabaseClient();
+
+// ==================== 内嵌数据（Supabase 失败时降级） ====================
+const FALLBACK_DATA = {
+  categories: [
+    {
+      id: 'mlcc', name: 'MLCC电容', display_name: 'MLCC电容',
+      kinds_config: {
+        kinds: [
+          { key: 'default', name: 'MLCC电容', filters: [
+            {key:'kind', name:'种类', type:'checkbox'},
+            {key:'package', name:'封装/体积', type:'checkbox'},
+            {key:'capacitance', name:'容值', type:'checkbox'},
+            {key:'tolerance', name:'精度', type:'checkbox'},
+            {key:'rated_voltage', name:'额定电压', type:'checkbox'},
+            {key:'temp_coefficient', name:'温度系数', type:'checkbox'}
+          ]}
+        ]
+      }
+    },
+    {
+      id: 'smd_al_electrolytic', name: '贴片型铝电解电容', display_name: '贴片型铝电解电容',
+      kinds_config: {
+        kinds: [
+          { key: 'default', name: '贴片型铝电解电容', filters: [
+            {key:'kind', name:'种类', type:'checkbox'},
+            {key:'body_diameter', name:'电容体直径', type:'checkbox'},
+            {key:'body_length', name:'电容体长度', type:'checkbox'},
+            {key:'capacitance', name:'容值', type:'checkbox'},
+            {key:'tolerance', name:'精度', type:'checkbox'},
+            {key:'rated_voltage', name:'额定电压', type:'checkbox'},
+            {key:'ripple_current', name:'纹波电流', type:'checkbox'},
+            {key:'esr', name:'等效串联电阻(ESR)', type:'checkbox'},
+            {key:'operating_life', name:'工作寿命', type:'checkbox'},
+            {key:'operating_temp', name:'工作温度', type:'checkbox'}
+          ]}
+        ]
+      }
+    },
+    {
+      id: 'pptc', name: '自恢复保险丝', display_name: '自恢复保险丝',
+      kinds_config: {
+        kinds: [
+          { key: 'default', name: '自恢复保险丝', filters: [
+            {key:'kind', name:'种类', type:'checkbox'},
+            {key:'series', name:'Series', type:'checkbox'},
+            {key:'ihold', name:'Ihold(A)', type:'checkbox'},
+            {key:'itrip', name:'Itrip(A)', type:'checkbox'},
+            {key:'vmax', name:'Vmax(VDC)', type:'checkbox'},
+            {key:'trip_current', name:'Max Time to Trip Current(A)', type:'checkbox'},
+            {key:'trip_time', name:'Max Time to Trip Tmax(S)', type:'checkbox'},
+            {key:'imax', name:'Imax(A)', type:'checkbox'},
+            {key:'pd_typ', name:'Pd typ(W)', type:'checkbox'},
+            {key:'rimin', name:'Rimin(Ω)', type:'checkbox'},
+            {key:'r1max', name:'R1max(Ω)', type:'checkbox'},
+            {key:'package', name:'Package', type:'checkbox'}
+          ]}
+        ]
+      }
+    }
+  ],
+  products: [
+    {category:'mlcc', kind:'default', model:'CC0603KRX7R9BB104', manufacturer:'CAYEE', spec_data:{kind:'Class II', package:'0603', capacitance:'100nF', tolerance:'±10%', rated_voltage:'50V', temp_coefficient:'X7R'}, price:'0.015', image_url:'', remark:'常用陶瓷电容'},
+    {category:'mlcc', kind:'default', model:'CC0805KKX5R8BB106', manufacturer:'CAYEE', spec_data:{kind:'Class II', package:'0805', capacitance:'10μF', tolerance:'±10%', rated_voltage:'25V', temp_coefficient:'X5R'}, price:'0.028', image_url:'', remark:'大容量去耦'},
+    {category:'mlcc', kind:'default', model:'CC1206KKX7RDBB102', manufacturer:'CAYEE', spec_data:{kind:'Class II', package:'1206', capacitance:'1nF', tolerance:'±10%', rated_voltage:'1kV', temp_coefficient:'X7R'}, price:'0.035', image_url:'', remark:'高压场景'},
+    {category:'mlcc', kind:'default', model:'CC0603JRNPO9BN100', manufacturer:'CAYEE', spec_data:{kind:'Class I', package:'0603', capacitance:'10pF', tolerance:'±5%', rated_voltage:'50V', temp_coefficient:'C0G(NP0)'}, price:'0.012', image_url:'', remark:'高频稳定'},
+    {category:'mlcc', kind:'default', model:'CC1812KKX7RDBB474', manufacturer:'CAYEE', spec_data:{kind:'高压', package:'1812', capacitance:'470nF', tolerance:'±10%', rated_voltage:'500V', temp_coefficient:'X7R'}, price:'0.085', image_url:'', remark:'高压大封装'},
+    {category:'smd_al_electrolytic', kind:'default', model:'CAY-VEJ100M1VTR-0605', manufacturer:'CAYEE', spec_data:{kind:'普通贴片铝电解', body_diameter:'6.3mm', body_length:'5.8mm', capacitance:'100μF', tolerance:'±20%', rated_voltage:'35V', ripple_current:'200mA', esr:'≤1Ω', operating_life:'2000h', operating_temp:'-40℃~105℃'}, price:'0.120', image_url:'', remark:'常规贴片铝电解'},
+    {category:'smd_al_electrolytic', kind:'default', model:'CAY-VEJ220M1ETR-0807', manufacturer:'CAYEE', spec_data:{kind:'低阻抗', body_diameter:'8mm', body_length:'7.7mm', capacitance:'220μF', tolerance:'±20%', rated_voltage:'25V', ripple_current:'500mA', esr:'≤0.5Ω', operating_life:'5000h', operating_temp:'-55℃~105℃'}, price:'0.180', image_url:'', remark:'低ESR'},
+    {category:'smd_al_electrolytic', kind:'default', model:'CAY-VEJ470M1CTR-1010', manufacturer:'CAYEE', spec_data:{kind:'高纹波', body_diameter:'10mm', body_length:'10mm', capacitance:'470μF', tolerance:'±20%', rated_voltage:'16V', ripple_current:'1A', esr:'≤0.2Ω', operating_life:'10000h', operating_temp:'-40℃~125℃'}, price:'0.320', image_url:'', remark:'高纹波长寿命'},
+    {category:'pptc', kind:'default', model:'CAY-MSMD050-1206', manufacturer:'CAYEE', spec_data:{kind:'贴片型', series:'SMD1206', ihold:'0.5', itrip:'1.0', vmax:'6V', trip_current:'8.0', trip_time:'0.3', imax:'100', pd_typ:'0.6', rimin:'0.15', r1max:'0.8', package:'1206'}, price:'0.045', image_url:'', remark:'1206贴片保险丝'},
+    {category:'pptc', kind:'default', model:'CAY-MSMD110-1206', manufacturer:'CAYEE', spec_data:{kind:'贴片型', series:'SMD1206', ihold:'1.1', itrip:'2.2', vmax:'6V', trip_current:'8.0', trip_time:'0.5', imax:'100', pd_typ:'0.8', rimin:'0.08', r1max:'0.5', package:'1206'}, price:'0.055', image_url:'', remark:'1.1A保持电流'},
+    {category:'pptc', kind:'default', model:'CAY-MSMD200-1812', manufacturer:'CAYEE', spec_data:{kind:'贴片型', series:'SMD1812', ihold:'2.0', itrip:'4.0', vmax:'8V', trip_current:'8.0', trip_time:'1.0', imax:'100', pd_typ:'1.0', rimin:'0.04', r1max:'0.2', package:'1812'}, price:'0.085', image_url:'', remark:'1812大电流'},
+    {category:'pptc', kind:'default', model:'CAY-RXEF050-72R', manufacturer:'CAYEE', spec_data:{kind:'径向引线', series:'RXEF', ihold:'0.5', itrip:'1.0', vmax:'72V', trip_current:'8.0', trip_time:'2.0', imax:'40', pd_typ:'0.7', rimin:'0.2', r1max:'1.0', package:'DIP'}, price:'0.120', image_url:'', remark:'径向引线插件'}
+  ]
+};
+
+// ==================== 状态 ====================
+let appState = {
+  categories: [],
+  products: [],
+  currentCategoryId: 'mlcc',
+  currentKindKey: '',
+  selectedFilters: {},
+  searchTerms: {},
+  loading: true,
+  error: null
+};
+
+// ==================== 初始化 ====================
+async function init() {
+  appState.categories = FALLBACK_DATA.categories;
+  appState.products = FALLBACK_DATA.products;
+  appState.loading = false;
+  initCategoryAndKind();
+  renderAll();
+  showDebug('已加载内嵌示例数据（' + appState.products.length + ' 条），正在连接数据库...');
+
+  if (!_supabaseClient) {
+    showDebug('等待 Supabase SDK 加载...');
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 100));
+      if (initSupabaseClient()) break;
+      if (window.__supabaseLoadFailed) break;
+    }
+  }
+
+  if (_supabaseClient) {
+    try {
+      const [{ data: cats, error: err1 }, { data: prods, error: err2 }] = await Promise.all([
+        _supabaseClient.from('categories').select('*'),
+        _supabaseClient.from('products').select('*')
+      ]);
+      if (err1) throw err1;
+      if (err2) throw err2;
+      if (cats && cats.length && prods) {
+        // 数据库字段映射：name/config -> 代码使用的 display_name/kinds_config
+        appState.categories = cats.map(c => {
+          let kindsConfig = c.kinds_config;
+          // 数据库里的 config 是 {filters: [...]} 扁平结构，需包装成 {kinds: [...]}
+          if (!kindsConfig && c.config) {
+            if (Array.isArray(c.config.filters)) {
+              kindsConfig = { kinds: [{ key: 'default', name: c.name || c.display_name, filters: c.config.filters }] };
+            } else if (c.config.kinds) {
+              kindsConfig = c.config;
+            } else {
+              kindsConfig = { kinds: [{ key: 'default', name: c.name || c.display_name, filters: [] }] };
+            }
+          }
+          if (!kindsConfig) {
+            kindsConfig = { kinds: [{ key: 'default', name: c.name || c.display_name, filters: [] }] };
+          }
+          return {
+            ...c,
+            display_name: c.display_name || c.name,
+            kinds_config: kindsConfig
+          };
+        });
+        appState.products = prods.map(p => ({
+          ...p,
+          kind: p.kind || 'default'
+        }));
+        initCategoryAndKind();
+        appState.selectedFilters = {};
+        appState.searchTerms = {};
+        renderAll();
+        showDebug('数据库连接成功！已加载 ' + cats.length + '个分类，' + prods.length + ' 条产品数据。');
+      } else {
+        showDebug('数据库返回空数据，继续使用内嵌示例数据。');
+      }
+    } catch (e) {
+      console.error('Supabase 加载失败:', e);
+      showDebug('数据库连接失败：' + (e.message || JSON.stringify(e)) + '，继续使用内嵌示例数据。');
+    }
+  } else if (window.__supabaseLoadFailed) {
+    showDebug('Supabase SDK 加载失败（CDN 不可达），使用内嵌示例数据。如需数据库功能请检查网络。');
+  } else {
+    showDebug('Supabase SDK 未就绪（超时 3 秒），使用内嵌示例数据。如需数据库功能请检查网络或刷新页面。');
+  }
+}
+
+function showDebug(msg) {
+  // 不再页面显示数据库连接提示，仅输出到控制台，避免黄色提示条影响前台展示
+  console.log('[DEBUG]', msg);
+}
+
+window.addEventListener('error', function(e) {
+  showDebug('页面脚本错误：' + e.message + ' (行:' + (e.lineno || '?') + ')');
+});
+
+function initCategoryAndKind() {
+  if (!appState.categories.length) return;
+  const cat = appState.categories.find(c => c.id === appState.currentCategoryId) || appState.categories[0];
+  appState.currentCategoryId = cat.id;
+  const kinds = cat.kinds_config?.kinds || [];
+  appState.currentKindKey = kinds.length ? kinds[0].key : '';
+  appState.selectedFilters = {};
+  appState.searchTerms = {};
+}
+
+function getCategory() {
+  return appState.categories.find(c => c.id === appState.currentCategoryId) || appState.categories[0];
+}
+
+function getKinds() {
+  const cat = getCategory();
+  return cat?.kinds_config?.kinds || [];
+}
+
+function getCurrentKind() {
+  return getKinds().find(k => k.key === appState.currentKindKey) || getKinds()[0];
+}
+
+// ==================== 渲染 ====================
+function renderAll() {
+  if (appState.loading) {
+    document.getElementById('catBar').innerHTML = '<div class="loading">正在加载数据...</div>';
+    document.getElementById('filters').innerHTML = '';
+    document.getElementById('results').innerHTML = '';
+    return;
+  }
+  renderCatBar();
+  renderFilters();
+  renderResults();
+}
+
+function renderCatBar() {
+  const bar = document.getElementById('catBar');
+  bar.innerHTML = appState.categories.map(cat => {
+    const active = cat.id === appState.currentCategoryId ? 'active' : '';
+    return `<button class="cat-btn ${active}" data-id="${cat.id}">${cat.display_name}</button>`;
+  }).join('');
+  bar.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      appState.currentCategoryId = btn.dataset.id;
+      initCategoryAndKind();
+      renderAll();
+    });
+  });
+}
+
+function renderFilters() {
+  const panel = document.getElementById('filters');
+  const kinds = getKinds();
+  const currentKind = getCurrentKind();
+  if (!currentKind) {
+    panel.innerHTML = '<div class="empty-state">暂无筛选配置</div>';
+    return;
+  }
+
+  let html = '';
+  if (kinds.length > 1) {
+    html += `<div class="kind-bar">` + kinds.map(k => {
+      const active = k.key === appState.currentKindKey ? 'active' : '';
+      return `<button class="kind-btn ${active}" data-key="${k.key}">${k.name}</button>`;
+    }).join('') + `</div>`;
+  }
+
+  html += `<div class="filter-row">`;
+  currentKind.filters.forEach(filter => {
+    const options = getFilterOptions(filter.key);
+    const selected = appState.selectedFilters[filter.key] || new Set();
+    const searchTerm = appState.searchTerms[filter.key] || '';
+    const filteredOptions = options.filter(o => o.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    html += `
+      <div class="filter-section">
+        <div class="filter-title">
+          <span>${filter.name}</span>
+          <span class="reset" data-key="${filter.key}">重置</span>
+        </div>
+        <input type="text" class="filter-search" placeholder="搜索..." data-key="${filter.key}" value="${escapeHtml(searchTerm)}">
+        <div class="filter-options">
+          ${filteredOptions.map(opt => `
+            <label class="filter-option">
+              <input type="checkbox" data-key="${filter.key}" value="${escapeHtml(opt)}" ${selected.has(opt) ? 'checked' : ''}>
+              <span>${escapeHtml(opt)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  panel.innerHTML = html;
+
+  panel.querySelectorAll('.kind-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      appState.currentKindKey = btn.dataset.key;
+      appState.selectedFilters = {};
+      appState.searchTerms = {};
+      renderAll();
+    });
+  });
+
+  panel.querySelectorAll('.filter-option input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const key = cb.dataset.key;
+      const val = cb.value;
+      if (!appState.selectedFilters[key]) appState.selectedFilters[key] = new Set();
+      if (cb.checked) appState.selectedFilters[key].add(val);
+      else appState.selectedFilters[key].delete(val);
+      renderResults();
+    });
+  });
+
+  panel.querySelectorAll('.filter-search').forEach(input => {
+    input.addEventListener('input', () => {
+      appState.searchTerms[input.dataset.key] = input.value;
+      renderFilters();
+    });
+  });
+
+  panel.querySelectorAll('.filter-title .reset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete appState.selectedFilters[btn.dataset.key];
+      renderAll();
+    });
+  });
+}
+
+function getFilterOptions(filterKey) {
+  const products = appState.products.filter(p => p.category === appState.currentCategoryId && p.kind === appState.currentKindKey);
+  const values = new Set();
+  products.forEach(p => {
+    const v = p.spec_data?.[filterKey];
+    if (v !== undefined && v !== null && v !== '') values.add(String(v));
+  });
+  return Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function renderResults() {
+  const panel = document.getElementById('results');
+  const currentKind = getCurrentKind();
+  if (!currentKind) {
+    panel.innerHTML = '<div class="empty-state">暂无产品数据</div>';
+    return;
+  }
+
+  let products = appState.products.filter(p =>
+    p.category === appState.currentCategoryId && p.kind === appState.currentKindKey
+  );
+
+  Object.keys(appState.selectedFilters).forEach(key => {
+    const selected = appState.selectedFilters[key];
+    if (selected && selected.size) {
+      products = products.filter(p => {
+        const v = p.spec_data?.[key];
+        return v !== undefined && selected.has(String(v));
+      });
+    }
+  });
+
+  const count = products.length;
+  let html = `
+    <div class="results-bar">
+      <div class="results-count">共 <strong>${count}</strong> 个型号匹配</div>
+      <div class="clear-all" id="clearAll">清空全部筛选</div>
+    </div>
+  `;
+
+  if (count === 0) {
+    html += `<div class="empty-state">没有符合条件的型号，请调整筛选条件</div>`;
+  } else {
+    html += `<div style="overflow-x:auto;"><table class="results-table"><thead><tr>`;
+    html += `<th>图片</th><th>型号</th><th>制造商</th>`;
+    currentKind.filters.forEach(f => {
+      html += `<th>${escapeHtml(f.name)}</th>`;
+    });
+    html += `<th>参考价格</th><th>数据手册</th><th>备注</th></tr></thead><tbody>`;
+
+    products.forEach(p => {
+      html += `<tr>`;
+      if (p.image_url) {
+        html += `<td><img src="${escapeHtml(p.image_url)}" class="product-thumb" alt=""></td>`;
+      } else {
+        html += `<td class="no-image">-</td>`;
+      }
+      html += `<td class="model">${escapeHtml(p.model)}</td><td>${escapeHtml(p.manufacturer)}</td>`;
+      currentKind.filters.forEach(f => {
+        const v = p.spec_data?.[f.key] || '-';
+        html += `<td>${escapeHtml(v)}</td>`;
+      });
+      html += `<td class="price">¥${escapeHtml(p.price || '-')}</td>`;
+      if (p.datasheet_url) {
+        html += `<td><a class="datasheet-link" href="${escapeHtml(p.datasheet_url)}" target="_blank">数据手册</a></td>`;
+      } else {
+        html += `<td class="no-datasheet">暂无</td>`;
+      }
+      html += `<td class="remark">${escapeHtml(p.remark || '-')}</td>`;
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  panel.innerHTML = html;
+  document.getElementById('clearAll').addEventListener('click', () => {
+    appState.selectedFilters = {};
+    appState.searchTerms = {};
+    renderAll();
+  });
+}
+
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
